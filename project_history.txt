@@ -1,0 +1,247 @@
+    1  [200~whoami
+    2  hostnamectl
+    3  lsblk
+    4  ip -4 addr show
+    5  ip route
+    6  nmcli connection show~
+    7  whoami
+    8  hostnamectl
+    9  lsblk
+   10  ip -4 addr show
+   11  ip route
+   12  nmcli connection show
+   13  lsblk
+   14  echo "=== USER ==="
+   15  whoami
+   16  echo "=== DISKS ==="
+   17  lsblk
+   18  echo "=== CONNECTIONS ==="
+   19  nmcli connection show
+   20  echo "=== HOSTNAME SET ==="
+   21  sudo hostnamectl set-hostname mephi-2026.domain.local
+   22  echo "=== HOSTNAME CHECK ==="
+   23  hostnamectl
+   24  sudo nmcli connection modify "Проводное подключение 1" ipv4.addresses 192.168.1.100/24
+   25  sudo nmcli connection modify "Проводное подключение 1" ipv4.gateway 192.168.1.1
+   26  sudo nmcli connection modify "Проводное подключение 1" ipv4.dns "8.8.8.8"
+   27  sudo nmcli connection modify "Проводное подключение 1" ipv4.method manual
+   28  sudo nmcli connection modify "Проводное подключение 1" ipv4.ignore-auto-dns yes
+   29  sudo nmcli connection down "Проводное подключение 1"
+   30  sudo nmcli connection up "Проводное подключение 1"
+   31  ip -4 addr show
+   32  ip route | grep default
+   33  ping -c 4 8.8.8.8 > /tmp/network_check.txt
+   34  ping -c 4 192.168.1.1 >> /tmp/network_check.txt
+   35  echo "=== NETWORK CHECK FILE ==="
+   36  cat /tmp/network_check.txt
+   37  ip -4 addr show
+   38  ip route | grep default
+   39  ping -c 4 192.168.1.1
+   40  ping -c 4 8.8.8.8
+   41  echo "=== SAVE NETWORK CHECK ==="
+   42  ping -c 4 8.8.8.8 > /tmp/network_check.txt
+   43  ping -c 4 192.168.1.1 >> /tmp/network_check.txt
+   44  cat /tmp/network_check.txt
+   45  echo "=== SECTION 2.1: INSTALL PACKAGES ==="
+   46  sudo dnf makecache
+   47  sudo dnf install -y nginx tcpdump libcap-ng-utils
+   48  echo "=== CHECK INSTALLED PACKAGES ==="
+   49  rpm -qa | grep -E "nginx|tcpdump|libcap-ng"
+   50  echo "=== SECTION 2.2: DOWNLOAD TCPDUMP RPM ==="
+   51  dnf download --destdir=/tmp tcpdump
+   52  echo "=== CHECK DOWNLOADED RPM ==="
+   53  ls -lh /tmp/tcpdump*.rpm
+   54  echo "=== INSTALL LOCAL RPM WITH RPM ==="
+   55  sudo rpm -Uvh /tmp/tcpdump-*.rpm
+   56  echo "=== CHECK TCPDUMP VERSION ==="
+   57  tcpdump --version
+   58  echo "=== SECTION 3.1: CHECK DISK BEFORE PARTITIONING ==="
+   59  lsblk
+   60  echo "=== CREATE ONE PARTITION ON /dev/sdb ==="
+   61  printf "n\np\n1\n\n\nw\n" | sudo fdisk /dev/sdb
+   62  echo "=== UPDATE PARTITION TABLE ==="
+   63  sudo partprobe /dev/sdb
+   64  echo "=== CHECK NEW PARTITION ==="
+   65  lsblk
+   66  echo "=== FORMAT /dev/sdb1 AS EXT4 WITH LABEL MEPHI_DATA ==="
+   67  sudo mkfs.ext4 -L MEPHI_DATA /dev/sdb1
+   68  echo "=== CREATE MOUNT POINT ==="
+   69  sudo mkdir -p /data/mephi-web
+   70  echo "=== ADD TO /etc/fstab IF NOT EXISTS ==="
+   71  if ! grep -q "LABEL=MEPHI_DATA /data/mephi-web" /etc/fstab; then   echo "LABEL=MEPHI_DATA /data/mephi-web ext4 defaults 0 2" | sudo tee -a /etc/fstab; fi
+   72  echo "=== MOUNT ALL FROM /etc/fstab ==="
+   73  sudo mount -a
+   74  echo "=== CHECK MOUNT RESULT ==="
+   75  df -h | grep mephi-web
+   76  lsblk -f
+   77  echo "=== SYSTEMD RELOAD AFTER FSTAB CHANGE ==="
+   78  sudo systemctl daemon-reload
+   79  echo "=== SECTION 3.2: START AND ENABLE NGINX ==="
+   80  sudo systemctl start nginx
+   81  sudo systemctl enable nginx
+   82  echo "=== CHECK NGINX STATUS ==="
+   83  systemctl is-active nginx
+   84  systemctl is-enabled nginx
+   85  echo "=== SAVE NGINX LOGS FOR LAST 5 MINUTES ==="
+   86  sudo journalctl -u nginx --since "5 minutes ago" > /tmp/nginx_recent_logs.txt
+   87  echo "=== CHECK NGINX LOG FILE ==="
+   88  cat /tmp/nginx_recent_logs.txt
+   89  echo "=== SYSTEMD RELOAD AFTER FSTAB CHANGE ==="
+   90  sudo systemctl daemon-reload
+   91  echo "=== SECTION 3.2: START AND ENABLE NGINX ==="
+   92  sudo systemctl start nginx
+   93  sudo systemctl enable nginx
+   94  echo "=== CHECK NGINX STATUS ==="
+   95  systemctl is-active nginx
+   96  systemctl is-enabled nginx
+   97  echo "=== SAVE NGINX LOGS FOR LAST 5 MINUTES ==="
+   98  sudo journalctl -u nginx --since "5 minutes ago" > /tmp/nginx_recent_logs.txt
+   99  echo "=== CHECK NGINX LOG FILE ==="
+  100  cat /tmp/nginx_recent_logs.txt
+  101  echo "=== SECTION 4.1: CREATE USER AND GROUP ==="
+  102  sudo groupadd mephi-devs 2>/dev/null || true
+  103  if ! id mephi-admin >/dev/null 2>&1; then   sudo useradd -m -G mephi-devs mephi-admin; else   sudo usermod -aG mephi-devs mephi-admin; fi
+  104  echo 'mephi-admin:P@ssw0rd2026' | sudo chpasswd
+  105  echo "=== SET OWNER AND PERMISSIONS FOR /data/mephi-web ==="
+  106  sudo chown -R mephi-admin:mephi-devs /data/mephi-web
+  107  sudo chmod 2775 /data/mephi-web
+  108  echo "=== CHECK USER ==="
+  109  id mephi-admin
+  110  echo "=== CHECK GROUP ==="
+  111  getent group mephi-devs
+  112  echo "=== CHECK DIRECTORY PERMISSIONS ==="
+  113  ls -ld /data/mephi-web
+  114  stat /data/mephi-web
+  115  echo "=== SECTION 4.2: SELINUX ENFORCING ==="
+  116  getenforce
+  117  sudo setenforce 1
+  118  sudo sed -i 's/^SELINUX=.*/SELINUX=enforcing/' /etc/selinux/config
+  119  getenforce
+  120  echo "=== INSTALL SEMANAGE IF NEEDED ==="
+  121  sudo dnf install -y policycoreutils-python-utils
+  122  echo "=== SET SELINUX CONTEXT FOR /data/mephi-web ==="
+  123  sudo semanage fcontext -a -t httpd_sys_content_t "/data/mephi-web(/.*)?" 2>/dev/null || sudo semanage fcontext -m -t httpd_sys_content_t "/data/mephi-web(/.*)?"
+  124  sudo restorecon -Rv /data/mephi-web
+  125  echo "=== CHECK SELINUX CONTEXT ==="
+  126  ls -Zd /data/mephi-web
+  127  echo "=== CONFIGURE NGINX ROOT TO /data/mephi-web ==="
+  128  sudo cp /etc/nginx/nginx.conf /etc/nginx/nginx.conf.bak
+  129  sudo grep -n "root" /etc/nginx/nginx.conf
+  130  sudo sed -i 's#root[[:space:]]\+/usr/share/nginx/html;#root /data/mephi-web;#' /etc/nginx/nginx.conf
+  131  sudo grep -n "root" /etc/nginx/nginx.conf
+  132  echo "=== OPEN HTTP IN FIREWALL ==="
+  133  sudo systemctl enable --now firewalld
+  134  sudo firewall-cmd --permanent --add-service=http
+  135  sudo firewall-cmd --reload
+  136  echo "=== CHECK NGINX CONFIG AND RESTART ==="
+  137  sudo nginx -t
+  138  sudo systemctl restart nginx
+  139  systemctl is-active nginx
+  140  echo "=== SET CAPABILITIES FOR TCPDUMP ==="
+  141  TCPDUMP_PATH=$(command -v tcpdump)
+  142  echo "TCPDUMP_PATH=$TCPDUMP_PATH"
+  143  sudo chmod u-s "$TCPDUMP_PATH"
+  144  sudo setcap cap_net_raw,cap_net_admin+ep "$TCPDUMP_PATH"
+  145  echo "=== CHECK TCPDUMP CAPABILITIES ==="
+  146  getcap "$TCPDUMP_PATH"
+  147  echo "=== CHECK TCPDUMP AS MEPHI-ADMIN ==="
+  148  sudo -u mephi-admin "$TCPDUMP_PATH" --help | head -n 10
+  149  echo "=== SECTION 5.1: DENY ROOT LOGIN WITH PAM ==="
+  150  echo "=== INSTALL SSH SERVER IF NEEDED ==="
+  151  sudo dnf install -y openssh-server
+  152  echo "=== CREATE DENIED USERS FILE ==="
+  153  echo "root" | sudo tee /etc/ssh/denied_users
+  154  sudo chmod 600 /etc/ssh/denied_users
+  155  sudo chown root:root /etc/ssh/denied_users
+  156  echo "=== BACKUP PAM FILES ==="
+  157  sudo cp /etc/pam.d/login /etc/pam.d/login.bak-mephi
+  158  sudo cp /etc/pam.d/sshd /etc/pam.d/sshd.bak-mephi
+  159  echo "=== ADD PAM RULE TO LOCAL LOGIN ==="
+  160  if ! grep -q "pam_listfile.so.*denied_users" /etc/pam.d/login; then   sudo sed -i '2iauth required pam_listfile.so item=user sense=deny file=/etc/ssh/denied_users onerr=succeed' /etc/pam.d/login; fi
+  161  echo "=== ADD PAM RULE TO SSH LOGIN ==="
+  162  if ! grep -q "pam_listfile.so.*denied_users" /etc/pam.d/sshd; then   sudo sed -i '2iauth required pam_listfile.so item=user sense=deny file=/etc/ssh/denied_users onerr=succeed' /etc/pam.d/sshd; fi
+  163  echo "=== ALSO DISABLE ROOT SSH LOGIN IN SSHD CONFIG ==="
+  164  sudo sed -i 's/^#\?PermitRootLogin.*/PermitRootLogin no/' /etc/ssh/sshd_config
+  165  if ! grep -q "^PermitRootLogin" /etc/ssh/sshd_config; then   echo "PermitRootLogin no" | sudo tee -a /etc/ssh/sshd_config; fi
+  166  echo "=== ENABLE AND RESTART SSHD ==="
+  167  sudo systemctl enable --now sshd
+  168  sudo systemctl restart sshd
+  169  echo "=== CHECK DENIED USERS FILE ==="
+  170  cat /etc/ssh/denied_users
+  171  echo "=== CHECK PAM LOGIN RULE ==="
+  172  grep -n "pam_listfile\|system-auth" /etc/pam.d/login
+  173  echo "=== CHECK PAM SSHD RULE ==="
+  174  grep -n "pam_listfile\|system-auth" /etc/pam.d/sshd
+  175  echo "=== CHECK SSHD ROOT LOGIN SETTING ==="
+  176  grep -n "^PermitRootLogin" /etc/ssh/sshd_config
+  177  echo "=== CHECK SSHD STATUS ==="
+  178  systemctl is-active sshd
+  179  systemctl is-enabled sshd
+  180  echo "=== FIXED CHECK SECTION 5.1 WITH SUDO ==="
+  181  echo "=== CHECK DENIED USERS FILE ==="
+  182  sudo cat /etc/ssh/denied_users
+  183  echo "=== CHECK PAM LOGIN RULE ==="
+  184  sudo grep -n "pam_listfile\|system-auth" /etc/pam.d/login
+  185  echo "=== CHECK PAM SSHD RULE ==="
+  186  sudo grep -n "pam_listfile\|system-auth" /etc/pam.d/sshd
+  187  echo "=== CHECK SSHD ROOT LOGIN SETTING ==="
+  188  sudo grep -n "^PermitRootLogin" /etc/ssh/sshd_config
+  189  echo "=== CHECK SSHD STATUS ==="
+  190  systemctl is-active sshd
+  191  systemctl is-enabled sshd
+  192  echo "=== SECTION 5.2: CREATE PERSONAL INDEX.HTML ==="
+  193  sudo -u mephi-admin bash -c 'echo "Hello from Student: M2551003" > /data/mephi-web/index.html'
+  194  echo "=== FIX OWNER, PERMISSIONS AND SELINUX CONTEXT ==="
+  195  sudo chown mephi-admin:mephi-devs /data/mephi-web/index.html
+  196  sudo chmod 664 /data/mephi-web/index.html
+  197  sudo restorecon -Rv /data/mephi-web
+  198  echo "=== CHECK INDEX FILE ==="
+  199  ls -lZ /data/mephi-web/index.html
+  200  cat /data/mephi-web/index.html
+  201  echo "=== RESTART NGINX ==="
+  202  sudo nginx -t
+  203  sudo systemctl restart nginx
+  204  systemctl is-active nginx
+  205  echo "=== CURL LOCALHOST ==="
+  206  curl http://localhost
+  207  echo
+  208  echo "=== CURL BY IP ==="
+  209  curl http://192.168.1.100
+  210  echo "=== SECTION 6.1: CREATE PROJECT ARTIFACTS ==="
+  211  history > ~/project_history.txt
+  212  ping -c 4 192.168.1.1 > ~/network_check.txt
+  213  ping -c 4 8.8.8.8 >> ~/network_check.txt
+  214  sudo journalctl -u nginx --since "5 minutes ago" > ~/nginx_recent_logs.txt
+  215  cp /etc/fstab ~/fstab.txt
+  216  getenforce > ~/selinux_status.txt
+  217  ls -Zd /data/mephi-web > ~/file_contexts.txt
+  218  TCPDUMP_PATH=$(command -v tcpdump)
+  219  getcap "$TCPDUMP_PATH" > ~/tcpdump_capabilities.txt
+  220  stat /data/mephi-web > ~/permissions.txt
+  221  id mephi-admin > ~/users_groups.txt
+  222  getent group mephi-devs >> ~/users_groups.txt
+  223  curl -s http://192.168.1.100 > ~/curl_output.txt
+  224  cp /data/mephi-web/index.html ~/index.html
+  225  cp /tmp/tcpdump-*.rpm ~/
+  226  echo "=== CHECK CREATED FILES ==="
+  227  ls -lh ~/project_history.txt ~/network_check.txt ~/nginx_recent_logs.txt ~/fstab.txt ~/selinux_status.txt ~/file_contexts.txt ~/tcpdump_capabilities.txt ~/permissions.txt ~/users_groups.txt ~/curl_output.txt ~/index.html ~/tcpdump-*.rpm
+  228  echo "=== INSTALL SCREENSHOT TOOL IF NEEDED ==="
+  229  sudo dnf install -y gnome-screenshot
+  230  echo "=== SHOW RESULT FOR SCREENSHOT ==="
+  231  clear
+  232  echo "=== MEPHI NGINX CHECK ==="
+  233  curl http://192.168.1.100
+  234  echo
+  235  echo "Screenshot will be created in 5 seconds..."
+  236  sleep 5
+  237  gnome-screenshot -f ~/mephi-nginx-screenshot.png
+  238  echo "=== CHECK SCREENSHOT FILE ==="
+  239  ls -lh ~/mephi-nginx-screenshot.png
+  240  clear
+  241  echo "=== MEPHI NGINX CHECK ==="
+  242  curl http://192.168.1.100
+  243  echo "=== FINAL PROJECT FOLDER ==="
+  244  mkdir -p ~/mephi-session-project-2026
+  245  sudo systemctl restart nginx
+  246  sudo journalctl -u nginx --since "5 minutes ago" > ~/nginx_recent_logs.txt
+  247  history > ~/project_history.txt
